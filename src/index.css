@@ -37,3 +37,19 @@ body {
   color: #2E2F2E;
   overflow-x: hidden;
 }
+
+/* Mobile responsiveness overrides */
+@media (max-width: 768px) {
+  .collection-card {
+    padding: 16px !important;
+  }
+  
+  .collection-card-img {
+    max-height: none !important;
+    width: 85% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important;
+  }
+}
+

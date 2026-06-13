@@ -44,7 +44,7 @@ export default function App() {
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-[#F0EADF] text-[#2E2F2E] overflow-x-hidden flex flex-col justify-between">
+    <div className="relative z-20 bg-transparent min-h-screen w-full text-[#2E2F2E] overflow-x-hidden flex flex-col justify-between">
       {/* <ThreeDExperience /> */}
       {/* Dynamic Navigation Header */}
       <Header 
@@ -65,7 +65,7 @@ export default function App() {
         </div>
 
         {/* Central Model Stage Wrapper */}
-        <div className="relative w-full flex-1 flex items-center justify-center min-h-[500px] md:min-h-[580px] z-10">
+        <div className="relative w-full flex-1 flex flex-col md:block items-center justify-center min-h-[500px] md:min-h-[580px] z-10">
           
           {/* Main profile photograph / 3D Model placeholder container - transitions smoothly */}
           <div className="relative w-[340px] h-[340px] md:w-[500px] md:h-[500px] flex items-center justify-center">
@@ -142,7 +142,7 @@ export default function App() {
             initial={{ opacity: 0, x: -40 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="absolute top-[12%] left-0 xl:left-4 bg-white/40 border border-[#2E2F2E]/15 hover:border-[#2E2F2E]/30 p-4 rounded-3xl flex items-center gap-4 transition-all duration-300 shadow-md backdrop-blur-md max-w-[310px] z-30"
+            className="relative md:absolute md:top-[12%] md:left-0 md:xl:left-4 mt-10 md:mt-0 bg-white/40 border border-[#2E2F2E]/15 hover:border-[#2E2F2E]/30 p-4 rounded-3xl flex items-center gap-4 transition-all duration-300 shadow-md backdrop-blur-md w-full max-w-[310px] z-30"
           >
             <div className="w-16 h-16 rounded-2xl bg-white/50 border border-[#2E2F2E]/10 overflow-hidden relative flex-shrink-0 flex items-center justify-center p-1.5 shadow-inner">
               <img 
@@ -171,7 +171,7 @@ export default function App() {
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="absolute top-[12%] right-0 xl:right-4 bg-white/40 border border-[#2E2F2E]/15 hover:border-[#2E2F2E]/30 p-4 rounded-3xl flex items-center gap-4 transition-all duration-300 shadow-md backdrop-blur-md max-w-[310px] z-30"
+            className="relative md:absolute md:top-[12%] md:right-0 md:xl:right-4 mt-4 md:mt-0 bg-white/40 border border-[#2E2F2E]/15 hover:border-[#2E2F2E]/30 p-4 rounded-3xl flex items-center gap-4 transition-all duration-300 shadow-md backdrop-blur-md w-full max-w-[310px] z-30"
           >
             <div className="space-y-1 text-right">
               <span className="font-tobiroto text-[10px] uppercase font-semibold text-[#2E2F2E]/60 tracking-widest block">
@@ -1022,7 +1022,7 @@ export default function App() {
                 
                 {/* Eyewear Card 1: Aurelia gold */}
                 <div 
-                  className="bg-[#F0EADF] rounded-[32px] p-6 flex flex-col justify-between items-center text-center aspect-[3/4] border border-[#F0EADF]/20 hover:-translate-y-2 transition-all duration-300 group cursor-pointer shadow-lg"
+                  className="collection-card bg-[#F0EADF] rounded-[32px] p-6 flex flex-col justify-between items-center text-center aspect-[3/4] border border-[#F0EADF]/20 hover:-translate-y-2 transition-all duration-300 group cursor-pointer shadow-lg"
                   onClick={() => {
                     const style = FRAME_STYLES.find(f => f.id === "aurelia");
                     if (style) {
@@ -1036,7 +1036,7 @@ export default function App() {
                     <img 
                       src="/aurelia.png" 
                       alt="Aurelia wireframe gold" 
-                      className="max-h-[85px] object-contain group-hover:scale-110 transition-transform duration-500 mix-blend-multiply"
+                      className="collection-card-img max-h-[85px] object-contain group-hover:scale-110 transition-transform duration-500 mix-blend-multiply"
                       referrerPolicy="no-referrer"
                     />
                   </div>
@@ -1048,7 +1048,7 @@ export default function App() {
 
                 {/* Eyewear Card 2: Obsidian slate */}
                 <div 
-                  className="bg-[#F0EADF] rounded-[32px] p-6 flex flex-col justify-between items-center text-center aspect-[3/4] border border-[#F0EADF]/20 hover:-translate-y-2 transition-all duration-300 group cursor-pointer shadow-lg"
+                  className="collection-card bg-[#F0EADF] rounded-[32px] p-6 flex flex-col justify-between items-center text-center aspect-[3/4] border border-[#F0EADF]/20 hover:-translate-y-2 transition-all duration-300 group cursor-pointer shadow-lg"
                   onClick={() => {
                     const style = FRAME_STYLES.find(f => f.id === "obsidian");
                     if (style) {
@@ -1062,7 +1062,7 @@ export default function App() {
                     <img 
                       src="https://pngimg.com/uploads/glasses/glasses_PNG54261.png" 
                       alt="Obsidian slate block" 
-                      className="max-h-[85px] object-contain group-hover:scale-110 transition-transform duration-500 mix-blend-multiply"
+                      className="collection-card-img max-h-[85px] object-contain group-hover:scale-110 transition-transform duration-500 mix-blend-multiply"
                       referrerPolicy="no-referrer"
                     />
                   </div>
@@ -1074,7 +1074,7 @@ export default function App() {
 
                 {/* Eyewear Card 3: Tortoise craft */}
                 <div 
-                  className="bg-[#F0EADF] rounded-[32px] p-6 flex flex-col justify-between items-center text-center aspect-[3/4] border border-[#F0EADF]/20 hover:-translate-y-2 transition-all duration-300 group cursor-pointer shadow-lg"
+                  className="collection-card bg-[#F0EADF] rounded-[32px] p-6 flex flex-col justify-between items-center text-center aspect-[3/4] border border-[#F0EADF]/20 hover:-translate-y-2 transition-all duration-300 group cursor-pointer shadow-lg"
                   onClick={() => {
                     const style = FRAME_STYLES.find(f => f.id === "tortoise");
                     if (style) {
@@ -1088,7 +1088,7 @@ export default function App() {
                     <img 
                       src="https://pngimg.com/uploads/glasses/glasses_PNG54325.png" 
                       alt="Tortoise amber resin" 
-                      className="max-h-[85px] object-contain group-hover:scale-110 transition-transform duration-500 mix-blend-multiply"
+                      className="collection-card-img max-h-[85px] object-contain group-hover:scale-110 transition-transform duration-500 mix-blend-multiply"
                       referrerPolicy="no-referrer"
                     />
                   </div>
