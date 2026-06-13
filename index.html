@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XLView — Premium Designer Eyewear</title>
+
+  <!-- GSAP & ScrollTrigger -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+
+  <!-- Import Map for Three.js ES Modules -->
+  <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.176.0/build/three.module.js",
+          "three/examples/jsm/loaders/GLTFLoader.js": "https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/loaders/GLTFLoader.js",
+          "three/examples/jsm/loaders/DRACOLoader.js": "https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/loaders/DRACOLoader.js",
+          "three/examples/jsm/environments/RoomEnvironment.js": "https://cdn.jsdelivr.net/npm/three@0.176.0/examples/jsm/environments/RoomEnvironment.js"
+        }
+      }
+    </script>
+
+  <style>
+    #glasses-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 25;
+      /* Contained above section backgrounds but below header/menus */
+      pointer-events: none;
+      display: block;
+    }
+
+    #glasses-loader {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(46, 47, 46, 0.9);
+      color: #F0EADF;
+      padding: 0.75rem 1.5rem;
+      border-radius: 9999px;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      z-index: 100;
+      pointer-events: none;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(12px);
+      transition: opacity 0.5s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid rgba(240, 234, 223, 0.15);
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+  <canvas id="glasses-canvas"></canvas>
+
+  <div id="glasses-loader">
+    <span>Loading 3D model…</span>
+    <span id="glasses-loader-percent" style="opacity: 0.7;">0%</span>
+  </div>
+
+  <script type="module" src="/src/main.tsx"></script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+    import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+
+    // Register GSAP ScrollTrigger plugin
+    gsap.registerPlugin(ScrollTrigger);
+
+    // 1. Scene Setup
+    const scene = new THREE.Scene();
+
+    // 2. Camera Setup (PerspectiveCamera, FOV 32, positioned at z = 6)
+    const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 0, 6);
+
+    // 3. WebGLRenderer Setup
+    const canvas = document.getElementById('glasses-canvas');
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      alpha: true,
+      antialias: true
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    // 4. Lighting Setup (Metallic/Reflective product preset)
+    const ambientLight = new THREE.AmbientLight(0xddeeff, 0.5);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
+    keyLight.position.set(-2, 4, 5);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0xaaccff, 0.4);
+    fillLight.position.set(4, 1, -2);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    rimLight.position.set(0, -3, -4);
+    scene.add(rimLight);
+
+    const hemiLight = new THREE.HemisphereLight(0xddeeff, 0x998877, 0.3);
+    scene.add(hemiLight);
+
+    // PMREMGenerator & RoomEnvironment for reflections
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    const roomEnv = new RoomEnvironment();
+    const envMap = pmremGenerator.fromScene(roomEnv).texture;
+    scene.environment = envMap;
+    roomEnv.dispose();
+    pmremGenerator.dispose();
+
+    // 5. Waypoints setup for S-curved path (using fallback coordinates initially)
+    const waypoints = [
+      new THREE.Vector3(0.0, 0.6, 0),     // Waypoint 0 (Hero): Center upper
+      new THREE.Vector3(-2.4, 0.1, 0),    // Waypoint 1 (Stats/Cards): Card 2 center (dynamically updated)
+      new THREE.Vector3(2.4, -0.3, 0),    // Waypoint 2 (Feature/Dopamine): Viewport 3 center (dynamically updated)
+      new THREE.Vector3(1.8, -2.5, 0),    // Waypoint 3 (Achievements): Viewport 4 center (dynamically updated)
+      new THREE.Vector3(0.0, -4.5, 0)     // Waypoint 4 (Mistake): Viewport 5 center (dynamically updated)
+    ];
+
+    // CatmullRomCurve3 from waypoints with tension 0.5
+    const curve = new THREE.CatmullRomCurve3(waypoints, false, 'centripetal', 0.5);
+
+    // Screen to 3D World space unproject coordinate mapper (Z = 0)
+    function screenToWorld(screenX, screenY, camera) {
+      const vec = new THREE.Vector3(
+        (screenX / window.innerWidth) * 2 - 1,
+        -(screenY / window.innerHeight) * 2 + 1,
+        0.5
+      );
+      vec.unproject(camera);
+      const dir = vec.sub(camera.position).normalize();
+      const distance = -camera.position.z / dir.z;
+      return camera.position.clone().add(dir.multiplyScalar(distance));
+    }
+
+    // Dynamic calculation of WEBGL_VIEWPORT_03 center in 3D world space (Z = 0)
+    function updateCoordinates() {
+      const viewportEl = document.querySelector('[webgl_viewport_03]') ||
+        document.querySelector('[WEBGL_VIEWPORT_03]') ||
+        document.getElementById('landing-zone-2');
+      if (!viewportEl) {
+        throw new Error("Viewport element not found");
+      }
+      const viewport = viewportEl.getBoundingClientRect();
+      // Convert screen space (DOM) to Three.js world space
+      const targetVector = new THREE.Vector3(
+        (viewport.left + viewport.width / 2) / window.innerWidth * 2 - 1,
+        -(viewport.top + viewport.height / 2) / window.innerHeight * 2 + 1,
+        0.5
+      );
+      targetVector.unproject(camera);
+
+      // Project onto Z = 0 plane so it is correctly positioned in the 3D scene
+      const dir = targetVector.sub(camera.position).normalize();
+      const distance = -camera.position.z / dir.z;
+      return camera.position.clone().add(dir.multiplyScalar(distance));
+    }
+
+    // State machine variables for transitions
+    const transitionState = {
+      progress1: 0,       // 0 = Hero, 1 = Card 2
+      progress2: 0,       // 0 = Card 2 (Landed), 1 = Viewport 3 (Docked)
+      progress3: 0,       // 0 = Viewport 3 (Docked), 1 = Viewport 4 (Achievements)
+      progress4: 0,       // 0 = Viewport 4 (Achievements), 1 = Viewport 5 (Mistake)
+      ejectionScale: 1.0  // Ejection scale multiplier (pop-out effect)
+    };
+
+    // Coordinate and Scale caching to prevent layout thrashing (Item 4)
+    const posHero = new THREE.Vector3(0.0, 0.0, 0);
+    const posCard = new THREE.Vector3(-2.4, 0.1, 0);
+    const posViewport = new THREE.Vector3(2.4, -0.3, 0);
+    const posAchievements = new THREE.Vector3(1.8, -2.5, 0);
+    const posMistake = new THREE.Vector3(0.0, -4.5, 0);
+    const posFooter = new THREE.Vector3(0.0, -1.2, -1.0);
+
+    let scaleViewport = 1.0;
+    let scaleAchievements = 1.0;
+    let scaleMistake = 1.0;
+
+    // Mouse cursor interaction state (grab/grip and rotate from any direction)
+    let isDragging = false;
+    let previousPointerPosition = { x: 0, y: 0 };
+    let lastMousePosition = { x: 0, y: 0 };
+    const userRotationTarget = { x: 0, y: 0 };
+    const userRotationCurrent = { x: 0, y: 0 };
+
+    // Three.js Raycaster & Mouse vector for precise model hover detection
+    const raycaster = new THREE.Raycaster();
+    const mouseVector = new THREE.Vector2();
+
+    // Helper to check if pointer is hovering over the actual 3D model meshes
+    function checkModelHover(clientX, clientY) {
+      if (!model) return false;
+
+      const canvas = document.getElementById('glasses-canvas');
+      if (!canvas) return false;
+
+      // If canvas is faded out, don't allow interaction
+      if (canvas.style.opacity === '0') return false;
+
+      // Convert screen coordinates to normalized device coordinates (-1 to +1)
+      mouseVector.x = (clientX / window.innerWidth) * 2 - 1;
+      mouseVector.y = -(clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouseVector, camera);
+      const intersects = raycaster.intersectObject(model, true);
+      return intersects.length > 0;
+    }
+
+    // Pointer event listeners for grab and rotate interaction
+    window.addEventListener('pointermove', (e) => {
+      lastMousePosition.x = e.clientX;
+      lastMousePosition.y = e.clientY;
+
+      const canvas = document.getElementById('glasses-canvas');
+      if (!canvas) return;
+
+      if (isDragging) {
+        const deltaX = e.clientX - previousPointerPosition.x;
+        const deltaY = e.clientY - previousPointerPosition.y;
+
+        userRotationTarget.y += deltaX * 0.008;
+        userRotationTarget.x += deltaY * 0.008;
+
+        // Limit vertical rotation to prevent flipping upside down
+        userRotationTarget.x = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, userRotationTarget.x));
+
+        previousPointerPosition = { x: e.clientX, y: e.clientY };
+      } else {
+        const isOver = checkModelHover(e.clientX, e.clientY);
+        if (isOver) {
+          canvas.style.pointerEvents = 'auto';
+          canvas.style.cursor = 'grab';
+        } else {
+          canvas.style.pointerEvents = 'none';
+          canvas.style.cursor = '';
+        }
+      }
+    });
+
+    window.addEventListener('pointerdown', (e) => {
+      const canvas = document.getElementById('glasses-canvas');
+      if (!canvas) return;
+
+      const isOver = checkModelHover(e.clientX, e.clientY);
+      if (isOver) {
+        isDragging = true;
+        previousPointerPosition = { x: e.clientX, y: e.clientY };
+        canvas.style.cursor = 'grabbing';
+        canvas.style.pointerEvents = 'auto';
+      }
+    });
+
+    window.addEventListener('pointerup', () => {
+      if (isDragging) {
+        isDragging = false;
+        const canvas = document.getElementById('glasses-canvas');
+        if (canvas) {
+          canvas.style.cursor = 'grab';
+          canvas.style.pointerEvents = 'none';
+
+          // Immediately re-evaluate hover state on release
+          if (lastMousePosition.x !== 0) {
+            const isOver = checkModelHover(lastMousePosition.x, lastMousePosition.y);
+            if (isOver) {
+              canvas.style.pointerEvents = 'auto';
+              canvas.style.cursor = 'grab';
+            } else {
+              canvas.style.pointerEvents = 'none';
+              canvas.style.cursor = '';
+            }
+          }
+        }
+      }
+    });
+
+    // Update hover check on scroll in case model moves under cursor
+    window.addEventListener('scroll', () => {
+      if (!isDragging && lastMousePosition.x !== 0) {
+        const canvas = document.getElementById('glasses-canvas');
+        if (!canvas) return;
+
+        const isOver = checkModelHover(lastMousePosition.x, lastMousePosition.y);
+        if (isOver) {
+          canvas.style.pointerEvents = 'auto';
+          canvas.style.cursor = 'grab';
+        } else {
+          canvas.style.pointerEvents = 'none';
+          canvas.style.cursor = '';
+        }
+      }
+    });
+
+    function refreshCoordinates() {
+      if (!camera) return;
+
+      // Hero section coordinates (centered, slightly upper)
+      posHero.set(0.0, 0.0, 0);
+
+      // Section 2 - Card 2
+      const elCard = document.getElementById('glasses-landing-zone');
+      if (elCard) {
+        const rect = elCard.getBoundingClientRect();
+        posCard.copy(screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2, camera));
+      }
+
+      // Section 3 - Viewport
+      try {
+        posViewport.copy(updateCoordinates());
+      } catch (e) {
+        // fallback
+      }
+
+      // Section 4 - Achievements
+      const elAchievements = document.getElementById('landing-zone-3');
+      if (elAchievements) {
+        const rect = elAchievements.getBoundingClientRect();
+        posAchievements.copy(screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2, camera));
+      }
+
+      // Section 5 - Mistake
+      const elMistake = document.getElementById('landing-zone-4');
+      if (elMistake) {
+        const rect = elMistake.getBoundingClientRect();
+        posMistake.copy(screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2, camera));
+      }
+
+      // Viewport 3 scale
+      const elViewport = document.querySelector('[webgl_viewport_03]') ||
+        document.querySelector('[WEBGL_VIEWPORT_03]') ||
+        document.getElementById('landing-zone-2');
+      if (elViewport) {
+        const rect = elViewport.getBoundingClientRect();
+        const leftPos = screenToWorld(rect.left, rect.top + rect.height / 2, camera);
+        const rightPos = screenToWorld(rect.right, rect.top + rect.height / 2, camera);
+        const worldWidth = leftPos.distanceTo(rightPos);
+        scaleViewport = baseScale * ((worldWidth * 0.6) / 2.2);
+      } else {
+        scaleViewport = baseScale * (1.5 / 2.2);
+      }
+
+      // Achievements scale
+      if (elAchievements) {
+        const rect = elAchievements.getBoundingClientRect();
+        const leftPos = screenToWorld(rect.left, rect.top + rect.height / 2, camera);
+        const rightPos = screenToWorld(rect.right, rect.top + rect.height / 2, camera);
+        const worldWidth = leftPos.distanceTo(rightPos);
+        scaleAchievements = baseScale * ((worldWidth * 0.85) / 2.2);
+      } else {
+        scaleAchievements = baseScale * 0.8;
+      }
+
+      // Mistake scale
+      if (elMistake) {
+        const rect = elMistake.getBoundingClientRect();
+        const leftPos = screenToWorld(rect.left, rect.top + rect.height / 2, camera);
+        const rightPos = screenToWorld(rect.right, rect.top + rect.height / 2, camera);
+        const worldWidth = leftPos.distanceTo(rightPos);
+        scaleMistake = baseScale * ((worldWidth * 0.85) / 2.2);
+      } else {
+        scaleMistake = baseScale * 1.2;
+      }
+
+      // Update path spline waypoints
+      waypoints[1].copy(posCard);
+      waypoints[2].copy(posViewport);
+      waypoints[3].copy(posAchievements);
+      waypoints[4].copy(posMistake);
+      curve.points = waypoints;
+      curve.updateArcLengths();
+
+      if (isDebug && debugSpheres.length === waypoints.length) {
+        for (let i = 0; i < waypoints.length; i++) {
+          debugSpheres[i].position.copy(waypoints[i]);
+        }
+      }
+    }
+
+    const floatState = { factor: 1.0 }; // Blends weightless float off during active scrubs
+    let dockedIndicator = false;
+
+    // Conflict Resolution: Smoothly suppress weightless float when user is scrubbing
+    function updateFloatFactor(velocity) {
+      if (Math.abs(velocity) > 10) {
+        gsap.to(floatState, { factor: 0.0, duration: 0.2, overwrite: "auto" });
+      } else {
+        gsap.to(floatState, { factor: 1.0, duration: 0.5, overwrite: "auto" });
+      }
+    }
+
+    // Debug mode: Draw spline line and waypoint spheres if ?debug is in query params
+    const isDebug = window.location.search.includes('debug');
+    let debugSpheres = [];
+    if (isDebug) {
+      const curvePoints = curve.getPoints(100);
+      const splineGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
+      const splineMat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 });
+      const splineLine = new THREE.Line(splineGeo, splineMat);
+      scene.add(splineLine);
+
+      waypoints.forEach(pos => {
+        const sphereGeo = new THREE.SphereGeometry(0.08, 16, 16);
+        const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffa500 });
+        const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+        sphere.position.copy(pos);
+        scene.add(sphere);
+        debugSpheres.push(sphere);
+      });
+    }
+
+    // 6. Load 3D model
+    let model = null;
+    let baseScale = 1.0;
+    let scrollProgress = 0;
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+
+    // CHANGE THIS PATH to your .glb file URL
+    const MODEL_PATH = "/models/glasses.glb";
+
+    loader.load(
+      MODEL_PATH,
+      (gltf) => {
+        model = gltf.scene;
+
+        // Auto-center and normalize model scale using Box3
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        model.position.sub(center); // Center geometry locally
+
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        // Set baseScale so the model fits nicely
+        baseScale = 2.2 / maxDim;
+
+        // Model materials setup: loop through all meshes and override to fix blue/teal tint
+        model.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+
+            // Apply a MeshStandardMaterial override for a matte luxury black finish
+            const prevMaterial = child.material;
+            const newMaterial = new THREE.MeshStandardMaterial({
+              color: 0x1a1a1a, // Deep Matte Black
+              metalness: 0.2,  // Ensure low metallic reflection
+              roughness: 0.3,  // Prevent glossy environment shine
+              envMapIntensity: 0.2 // Reduce env map reflection causing the blue tint
+            });
+
+            // Copy over normal and texture map details from the original material
+            if (prevMaterial) {
+              if (prevMaterial.map) newMaterial.map = prevMaterial.map;
+              if (prevMaterial.normalMap) newMaterial.normalMap = prevMaterial.normalMap;
+              if (prevMaterial.roughnessMap) newMaterial.roughnessMap = prevMaterial.roughnessMap;
+              if (prevMaterial.metalnessMap) newMaterial.metalnessMap = prevMaterial.metalnessMap;
+            }
+
+            // Initialize emissive parameters for the Dock effect
+            newMaterial.emissive = new THREE.Color(0x000000);
+            newMaterial.emissiveIntensity = 0.0;
+
+            child.material = newMaterial;
+          }
+        });
+
+        // Container group for translation and rotation control
+        const container = new THREE.Group();
+        container.add(model);
+        scene.add(container);
+
+        // Fade out and remove loading indicator
+        const loaderEl = document.getElementById('glasses-loader');
+        if (loaderEl) {
+          loaderEl.style.opacity = '0';
+          setTimeout(() => loaderEl.remove(), 500);
+        }
+
+        // Entrance animation: scale from 0 to full size over 1.4s with ease expo.out and 0.2s delay
+        const entranceScale = { value: 0 };
+        gsap.to(entranceScale, {
+          value: 1,
+          duration: 1.4,
+          ease: "expo.out",
+          delay: 0.2
+        });
+
+        // Setup ScrollTrigger on document.body for general progression tracking
+        ScrollTrigger.create({
+          trigger: document.body,
+          start: "top top",
+          end: "bottom bottom",
+          scrub: 2.5,
+          onUpdate: (self) => {
+            scrollProgress = self.progress; // 0 to 1
+          }
+        });
+
+        // ScrollTrigger 1: Hero to Card 2 landing state driven by GSAP timeline (Item 1)
+        const timeline1 = gsap.timeline();
+        timeline1.to(transitionState, {
+          progress1: 1,
+          duration: 1,
+          ease: "none"
+        });
+
+        ScrollTrigger.create({
+          trigger: "#product-cards-section",
+          start: "top 95%",
+          endTrigger: "#glasses-landing-zone",
+          end: "center 65%",
+          scrub: 2,
+          animation: timeline1,
+          onUpdate: (self) => {
+            updateFloatFactor(self.getVelocity());
+
+            // Fade out Card 2 placeholder text as glasses approach
+            const textEl = document.getElementById('glasses-card-placeholder-content');
+            if (textEl) {
+              textEl.style.opacity = (1 - self.progress).toString();
+            }
+          }
+        });
+
+        // ScrollTrigger 2: Master Timeline (Card 2 to Viewport 3) with weightless easing and pop-out ejection
+        const masterTimeline = gsap.timeline();
+
+        // EJECTION step: scale increases by 1.1x at the start
+        masterTimeline.to(transitionState, {
+          ejectionScale: 1.1,
+          duration: 0.3,
+          ease: "power2.out"
+        });
+
+        // TRAJECTORY, DOCKING, and LOCK steps with ease: "power2.inOut"
+        masterTimeline.to(transitionState, {
+          progress2: 1,
+          ejectionScale: 1.0,
+          duration: 0.7,
+          ease: "power2.inOut"
+        }, "<+=0.1");
+
+        ScrollTrigger.create({
+          trigger: "#product-cards-section",
+          start: "bottom 95%",
+          endTrigger: "#bicycle-section",
+          end: "top 15%",
+          scrub: 2,
+          animation: masterTimeline,
+          onUpdate: (self) => {
+            updateFloatFactor(self.getVelocity());
+          }
+        });
+
+        // ScrollTrigger 3: Viewport 3 to Achievements Viewport (Section 4)
+        const timeline3 = gsap.timeline();
+        timeline3.to(transitionState, {
+          progress3: 1,
+          duration: 1,
+          ease: "none"
+        });
+
+        ScrollTrigger.create({
+          trigger: "#achievements-section",
+          start: "top 95%",
+          end: "top 35%",
+          scrub: 2,
+          animation: timeline3,
+          onUpdate: (self) => {
+            updateFloatFactor(self.getVelocity());
+          }
+        });
+
+        // ScrollTrigger 4: Viewport 4 to Mistake Viewport (Section 5)
+        const timeline4 = gsap.timeline();
+        timeline4.to(transitionState, {
+          progress4: 1,
+          duration: 1,
+          ease: "none"
+        });
+
+        ScrollTrigger.create({
+          trigger: "#mistake-section",
+          start: "top 95%",
+          end: "top 35%",
+          scrub: 2,
+          animation: timeline4,
+          onUpdate: (self) => {
+            updateFloatFactor(self.getVelocity());
+
+            // Fade out sofa-placeholder-content as glasses arrive
+            const textEl = document.getElementById('sofa-placeholder-content');
+            if (textEl) {
+              textEl.style.opacity = (1 - self.progress).toString();
+            }
+          }
+        });
+
+        // ScrollTrigger 5: Fade out canvas when scrolling past Section 5 (Mistake section is its last stop)
+        ScrollTrigger.create({
+          trigger: "#mistake-section",
+          start: "bottom 95%",
+          end: "bottom 15%",
+          scrub: 1.0,
+          onUpdate: (self) => {
+            const canvas = document.getElementById('glasses-canvas');
+            if (canvas) {
+              canvas.style.opacity = (1 - self.progress).toString();
+            }
+          }
+        });
+
+        // Call refreshCoordinates immediately to cache landing coordinates
+        refreshCoordinates();
+
+        // Recalculate coordinates whenever ScrollTrigger updates or refreshes (layout shifts)
+        ScrollTrigger.addEventListener("refresh", refreshCoordinates);
+
+        // Waypoints settle bounce setup
+        const waypointProgresses = [0.0, 0.25, 0.5, 0.75, 1.0];
+        const bounceRotationX = { value: 0 };
+        let lastTriggeredWaypoint = -1;
+        let bounceTween = null;
+
+        // Scale Interpolation Helper
+        const getScaleAtProgress = (t) => {
+          const scales = [1.0, 0.38, 0.95, 0.85, 1.2]; // Waypoint scales
+          if (t <= 0) return scales[0];
+          if (t >= 1) return scales[4];
+
+          const segmentCount = scales.length - 1;
+          const scaledProgress = t * segmentCount;
+          const index = Math.floor(scaledProgress);
+          const frac = scaledProgress - index;
+
+          const startScale = scales[index];
+          const endScale = scales[index + 1];
+
+          return THREE.MathUtils.lerp(startScale, endScale, frac);
+        };
+
+        // Scale to fit 80% of the actual DOM element width in 3D world units
+        function getScaleToFitViewportElement() {
+          const el = document.querySelector('[webgl_viewport_03]') ||
+            document.querySelector('[WEBGL_VIEWPORT_03]') ||
+            document.getElementById('landing-zone-2');
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            const leftPos = screenToWorld(rect.left, rect.top + rect.height / 2, camera);
+            const rightPos = screenToWorld(rect.right, rect.top + rect.height / 2, camera);
+            const worldWidth = leftPos.distanceTo(rightPos);
+
+            // Glasses fit inside 2.2 units of width at baseScale
+            const targetWorldWidth = worldWidth * 0.6;
+            return baseScale * (targetWorldWidth / 2.2);
+          }
+          return baseScale * 1.5; // fallback
+        }
+
+        // Scale to fit 85% of the achievements DOM element width in 3D world units
+        function getScaleToFitAchievementsViewport() {
+          const el = document.getElementById('landing-zone-3');
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            const leftPos = screenToWorld(rect.left, rect.top + rect.height / 2, camera);
+            const rightPos = screenToWorld(rect.right, rect.top + rect.height / 2, camera);
+            const worldWidth = leftPos.distanceTo(rightPos);
+
+            // Glasses fit inside 2.2 units of width at baseScale
+            const targetWorldWidth = worldWidth * 0.85;
+            return baseScale * (targetWorldWidth / 2.2);
+          }
+          return baseScale * 0.8; // fallback
+        }
+
+        // Scale to fit 85% of the mistake DOM element width in 3D world units
+        function getScaleToFitMistakeViewport() {
+          const el = document.getElementById('landing-zone-4');
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            const leftPos = screenToWorld(rect.left, rect.top + rect.height / 2, camera);
+            const rightPos = screenToWorld(rect.right, rect.top + rect.height / 2, camera);
+            const worldWidth = leftPos.distanceTo(rightPos);
+
+            // Glasses fit inside 2.2 units of width at baseScale
+            const targetWorldWidth = worldWidth * 0.85;
+            return baseScale * (targetWorldWidth / 2.2);
+          }
+          return baseScale * 1.2; // fallback
+        }
+
+        // Breathing Animation once landed in Card 2
+        const breathingScale = { value: 0 };
+        gsap.to(breathingScale, {
+          value: 0.02,
+          duration: 1.25,
+          yoyo: true,
+          repeat: -1,
+          ease: "sine.inOut"
+        });
+
+        // Idle Rotation
+        let idleRotationY = 0;
+
+        // Animation loop
+        function animate() {
+          requestAnimationFrame(animate);
+
+          // 1. Gather all dynamic world positions
+          const posHero = new THREE.Vector3(0.0, 0.0, 0);
+
+          const elCard = document.getElementById('glasses-landing-zone');
+          const posCard = new THREE.Vector3(-2.4, 0.1, 0); // default fallback
+          if (elCard) {
+            const rect = elCard.getBoundingClientRect();
+            posCard.copy(screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2, camera));
+          }
+
+          let posViewport = new THREE.Vector3(2.4, -0.3, 0); // default fallback
+          try {
+            posViewport.copy(updateCoordinates());
+          } catch (e) {
+            // fallback
+          }
+
+          const elAchievements = document.getElementById('landing-zone-3');
+          const posAchievements = new THREE.Vector3(1.8, -2.5, 0); // default fallback
+          if (elAchievements) {
+            const rect = elAchievements.getBoundingClientRect();
+            posAchievements.copy(screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2, camera));
+          }
+
+          const elMistake = document.getElementById('landing-zone-4');
+          const posMistake = new THREE.Vector3(0.0, -4.5, 0); // default fallback
+          if (elMistake) {
+            const rect = elMistake.getBoundingClientRect();
+            posMistake.copy(screenToWorld(rect.left + rect.width / 2, rect.top + rect.height / 2, camera));
+          }
+
+          const posFooter = new THREE.Vector3(0.0, -1.2, -1.0);
+
+          // Update path spline representation dynamically
+          waypoints[1].copy(posCard);
+          waypoints[2].copy(posViewport);
+          waypoints[3].copy(posAchievements);
+          waypoints[4].copy(posMistake);
+          curve.points = waypoints;
+          curve.updateArcLengths();
+
+          if (isDebug && debugSpheres.length === waypoints.length) {
+            for (let i = 0; i < waypoints.length; i++) {
+              debugSpheres[i].position.copy(waypoints[i]);
+            }
+          }
+
+          // 2. Trajectory interpolation
+          // Spline path position
+          const posPath = curve.getPointAt(scrollProgress);
+          const scalePath = baseScale * getScaleAtProgress(scrollProgress);
+
+          // Hero-to-Card 2 Trajectory via smooth Bezier arc curve (Item 2)
+          const controlPosHeroToCard = new THREE.Vector3(
+            (posHero.x + posCard.x) / 2 - 1.0,
+            (posHero.y + posCard.y) / 2 + 0.5,
+            (posHero.z + posCard.z) / 2 + 0.5
+          );
+          const bezierCurveHeroToCard = new THREE.QuadraticBezierCurve3(posHero, controlPosHeroToCard, posCard);
+          const posHeroToCard = bezierCurveHeroToCard.getPointAt(transitionState.progress1);
+
+          // Card-to-Viewport Trajectory via smooth Bezier arc curve
+          const controlPos = new THREE.Vector3(
+            (posCard.x + posViewport.x) / 2 + 1.5,
+            (posCard.y + posViewport.y) / 2 + 0.5,
+            (posCard.z + posViewport.z) / 2 + 1.0
+          );
+          const bezierCurve = new THREE.QuadraticBezierCurve3(posCard, controlPos, posViewport);
+          const posCardToViewport = bezierCurve.getPointAt(transitionState.progress2);
+
+          // Viewport-to-Achievements Trajectory via smooth Bezier arc curve
+          const controlPos2 = new THREE.Vector3(
+            (posViewport.x + posAchievements.x) / 2 - 1.0,
+            (posViewport.y + posAchievements.y) / 2 + 0.5,
+            (posViewport.z + posAchievements.z) / 2 + 0.5
+          );
+          const bezierCurve2 = new THREE.QuadraticBezierCurve3(posViewport, controlPos2, posAchievements);
+          const posViewportToAchievements = bezierCurve2.getPointAt(transitionState.progress3);
+
+          // Achievements-to-Mistake Trajectory via smooth Bezier arc curve
+          const controlPos3 = new THREE.Vector3(
+            (posAchievements.x + posMistake.x) / 2 + 1.0,
+            (posAchievements.y + posMistake.y) / 2 + 0.5,
+            (posAchievements.z + posMistake.z) / 2 + 0.5
+          );
+          const bezierCurve3 = new THREE.QuadraticBezierCurve3(posAchievements, controlPos3, posMistake);
+          const posAchievementsToMistake = bezierCurve3.getPointAt(transitionState.progress4);
+
+          // Interpolate position based on states
+          const posLandedToDocked = new THREE.Vector3().lerpVectors(posHeroToCard, posCardToViewport, transitionState.progress2);
+          const posDockedToAchievements = new THREE.Vector3().lerpVectors(posLandedToDocked, posViewportToAchievements, transitionState.progress3);
+          const finalPos = new THREE.Vector3().lerpVectors(posDockedToAchievements, posAchievementsToMistake, transitionState.progress4);
+
+          // Combine ScrollTrigger position with the floating offset directly (Item 3)
+          const isTransitioning = (transitionState.progress1 > 0 && transitionState.progress1 < 1) ||
+            (transitionState.progress2 > 0 && transitionState.progress2 < 1) ||
+            (transitionState.progress3 > 0 && transitionState.progress3 < 1) ||
+            (transitionState.progress4 > 0 && transitionState.progress4 < 1);
+          const baseFloat = Math.sin(Date.now() * 0.001) * 0.02 * (isTransitioning ? 0.2 : 1.0) * floatState.factor;
+
+          container.position.copy(finalPos);
+          container.position.y = finalPos.y + baseFloat;
+
+          // 3. Scale interpolation based on states
+          const scaleHeroToCard = THREE.MathUtils.lerp(baseScale * 1.0, baseScale * 0.38, transitionState.progress1);
+          const scaleLandedToDocked = THREE.MathUtils.lerp(scaleHeroToCard, scaleViewport, transitionState.progress2);
+          const scaleDockedToAchievements = THREE.MathUtils.lerp(scaleLandedToDocked, scaleAchievements, transitionState.progress3);
+          const scaleAchievementsToMistake = THREE.MathUtils.lerp(scaleDockedToAchievements, scaleMistake, transitionState.progress4);
+
+          // Blend breathing scale offset when card-bound (progress1 = 1, progress2 = 0)
+          const isLandedCard = transitionState.progress1 * (1 - transitionState.progress2);
+          const breathMultiplier = 1 + (breathingScale.value * isLandedCard);
+
+          const finalScale = scaleAchievementsToMistake * entranceScale.value * transitionState.ejectionScale * breathMultiplier;
+          container.scale.setScalar(finalScale);
+
+          // Settle bounce triggering logic (waypoint bounds)
+          let closeToWaypoint = -1;
+          for (let i = 0; i < waypointProgresses.length; i++) {
+            if (Math.abs(scrollProgress - waypointProgresses[i]) < 0.04) {
+              closeToWaypoint = i;
+              break;
+            }
+          }
+
+          if (closeToWaypoint !== -1) {
+            if (lastTriggeredWaypoint !== closeToWaypoint) {
+              lastTriggeredWaypoint = closeToWaypoint;
+
+              // Trigger small settle bounce: rotate forward and back (yoyo: true, repeat: 1)
+              if (bounceTween) bounceTween.kill();
+              bounceRotationX.value = 0;
+              bounceTween = gsap.to(bounceRotationX, {
+                value: 0.12,
+                duration: 0.35,
+                yoyo: true,
+                repeat: 1,
+                ease: "power1.inOut",
+                onComplete: () => {
+                  bounceRotationX.value = 0;
+                }
+              });
+            }
+          } else {
+            lastTriggeredWaypoint = -1;
+          }
+
+          // Smoothly interpolate current user rotation towards target user rotation
+          userRotationCurrent.x = THREE.MathUtils.lerp(userRotationCurrent.x, userRotationTarget.x, 0.08);
+          userRotationCurrent.y = THREE.MathUtils.lerp(userRotationCurrent.y, userRotationTarget.y, 0.08);
+
+          // Rotate model on Y axis at all times for idle spin, but pause during active dragging
+          if (!isDragging) {
+            idleRotationY += 0.004;
+          }
+
+          // 4. Rotation interpolation (looped spin + user drag rotation)
+          const finalRotX = bounceRotationX.value + userRotationCurrent.x;
+          const finalRotY = idleRotationY + userRotationCurrent.y;
+
+          container.rotation.set(finalRotX, finalRotY, 0);
+
+          renderer.render(scene, camera);
+        }
+
+        animate();
+      },
+      (xhr) => {
+        if (xhr.total > 0) {
+          const percent = Math.round((xhr.loaded / xhr.total) * 100);
+          const percentEl = document.getElementById('glasses-loader-percent');
+          if (percentEl) {
+            percentEl.textContent = percent + '%';
+          }
+        }
+      },
+      (err) => {
+        console.error("Error loading 3D glasses model:", err);
+        const percentEl = document.getElementById('glasses-loader-percent');
+        if (percentEl) {
+          percentEl.textContent = "Error loading";
+        }
+      }
+    );
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      refreshCoordinates(); // Recalculate coordinates on resize
+    });
+  </script>
+</body>
+
+</html>

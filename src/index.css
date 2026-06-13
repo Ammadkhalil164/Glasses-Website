@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Syncopate:wght@400;700&display=swap');
+
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Dream';
+  src: local('Syncopate'), local('Syncopate Regular'), local('Syncopate-Regular');
+}
+
+@theme {
+  --font-primary: "Dream", "Syncopate", sans-serif;
+  --font-secondary: "Montserrat", sans-serif;
+  --font-tobiroto: "Montserrat", sans-serif;
+}
+
+/* Custom overlay background and decorative effects */
+.bg-cream {
+  background-color: #F0EADF;
+}
+
+.text-charcoal {
+  color: #2E2F2E;
+}
+
+.border-charcoal {
+  border-color: #2E2F2E;
+}
+
+.bg-charcoal {
+  background-color: #2E2F2E;
+}
+
+/* Base style resets if needed to ensure smooth font pairing globally */
+body {
+  font-family: var(--font-secondary);
+  background-color: #F0EADF;
+  color: #2E2F2E;
+  overflow-x: hidden;
+}

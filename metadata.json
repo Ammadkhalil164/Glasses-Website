@@ -1,0 +1,6 @@
+{
+  "name": "XLView",
+  "description": "Luxurious Hero Section for premium glasses and eyewear with interactive details and elegant typographic layout.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

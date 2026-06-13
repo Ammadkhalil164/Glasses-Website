@@ -1,0 +1,26 @@
+Build a premium, high-fashion, single-page product showcase application centering around luxury optical wear / VR spectacles, styled with a sophisticated "Swiss Editorial" minimalist aesthetic.
+
+Color Palette & Typography:
+- Background Color: Clean Warm Alabaster/Sand (#F0EADF) only.
+- Typography & Accents: Soft deep charcoal gray (#2E2F2E) for all text and structural borders. 
+- Font Stack: Elegant, highly structured, clean geometric sans-serif (such as Inter or Space Grotesk) to give a tech-luxury brand look.
+
+Header & Navigation:
+- Brand Logo (MetaLeaf): Upper-left brand signature with a small clean leaf emblem constructed in a tiny geometric borders-and-fills container next to all-caps minimalist text reading "MetaLeaf".
+- Centered Menu: Pure text links with wide tracking: "Explore", "Experiences", "Technology", "About Us" with subtle hover transitions (no icons, pure editorial design).
+- Right Button: A beautifully proportioned, hollow pill-button reading "Get Started".
+
+Dynamic Hero section with Giant Full-Opacity Typography:
+- Giant Backdrop Typography: Centered giant display text reading "FUTURE" on the left and "VISION" on the right in full-opacity deep charcoal (#2E2F2E), serving as a powerful architectural typographic anchor.
+- Central Model Stage: Overlapping the backdrop is a stunning 3D model viewport block. It is a large rounded card (bg-white/20, border border-[#2E2F2E]/15, heavy backdrop-blur) with custom grid points, crosshair corner markers, and rotating orbital dotted rings.
+- Center Placeholder: In the heart of the orbital lines, display an elegant mathematical wireframe SVG bounding cube representing a "3D Object Space". Write "3D MODEL" at the bottom with a mock button reading "CONNECT 3D ASSETS (.gltf / .obj)".
+- SVG Hotspots: Two pulsing interactive nodes (hotspots) are placed directly over the 3D model container. Draw thin, dashed SVG connection paths (stroke-dasharray) extending gracefully from these hotspots to the left and right floating flyers.
+
+Floating Flyer Cards:
+- Left Flyer (PRISM VR): Position a clean, rounded-3xl floating capsule card in the lower-left center. It should feature a translucent frosted glass panel (bg-white/40, border-[#2E2F2E]/15), a high-contrast glasses concept preview avatar, and text reading "PRISM VR HEADSET CONCEPT" alongside technical dimensions.
+- Right Flyer (ULTRAMODERN): Position a matching translucent floating card in the upper-right center. It shows a right-aligned description titled "ULTRAMODERN SET OF VR" with another sleek preview avatar.
+
+Interactive Dock & Page Controls:
+- Bottom Page Dividers: A crisp top margin horizontal line (border-[#2E2F2E]/15) separating the main viewport from the dock.
+- Quick Specs: Left side displays classical specs: "Handcrafted in Turin, Italy" paired with an elegant certificate shield.
+- Center Style Dock: A circular pill dock (bg-[#2E2F2E]/5, border-[#2E2F2E]/15) containing selection capsules. Switching style highlights active styles with an animated deep charcoal capsule background, instantly and smoothly updating the text states on the screen.
